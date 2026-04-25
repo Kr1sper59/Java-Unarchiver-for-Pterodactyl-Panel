@@ -26,6 +26,7 @@ This project solves the problem by providing a JAR utility for unpacking archive
 ---
 
 ## Configuration
+Working example of configuration [here](src/main/resources/config.yml)
 ```yaml
 archive: archive_name.zip
 deleteAfter: false
