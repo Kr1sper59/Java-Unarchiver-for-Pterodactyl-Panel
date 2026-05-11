@@ -5,6 +5,7 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
@@ -42,23 +43,41 @@ public class Main {
 
     // zip
     public static void unzip(String file) throws IOException {
+        Path destDir = Path.of(".").toAbsolutePath().normalize();
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new FileInputStream(file))) {
 
             org.apache.commons.compress.archivers.zip.ZipArchiveEntry entry;
 
             while ((entry = zis.getNextZipEntry()) != null) {
 
-                File out = new File(entry.getName());
-
-                if (entry.isDirectory()) {
-                    out.mkdirs();
+                String name = entry.getName();
+                if (name == null || name.isBlank()) {
                     continue;
                 }
 
-                new File(out.getParent()).mkdirs();
+                try {
+                    Path target = destDir.resolve(name).normalize();
+                    if (!target.startsWith(destDir)) {
+                        continue;
+                    }
 
-                try (FileOutputStream fos = new FileOutputStream(out)) {
-                    zis.transferTo(fos);
+                    File out = target.toFile();
+
+                    if (entry.isDirectory()) {
+                        out.mkdirs();
+                        continue;
+                    }
+
+                    File parent = out.getParentFile();
+                    if (parent != null) {
+                        parent.mkdirs();
+                    }
+
+                    try (FileOutputStream fos = new FileOutputStream(out)) {
+                        zis.transferTo(fos);
+                    }
+                } catch (java.nio.file.InvalidPathException e) {
+                    System.out.println("Skipping: " + name + " (invalid path characters)");
                 }
             }
         }
@@ -67,6 +86,7 @@ public class Main {
     // tar.gz
     public static void untarGz(String file) throws IOException {
 
+        Path destDir = Path.of(".").toAbsolutePath().normalize();
         try (TarArchiveInputStream tis = new TarArchiveInputStream(
                 new GZIPInputStream(new FileInputStream(file)))) {
 
@@ -76,17 +96,16 @@ public class Main {
 
                 String name = entry.getName();
 
-                // protect form null 
                 if (name == null || name.isBlank()) {
                     continue;
                 }
 
-                // protect from path traversal
-                if (name.contains("..") || name.startsWith("/")) {
+                Path target = destDir.resolve(name).normalize();
+                if (!target.startsWith(destDir)) {
                     continue;
                 }
 
-                File out = new File(name);
+                File out = target.toFile();
 
                 if (entry.isDirectory()) {
                     out.mkdirs();
