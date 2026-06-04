@@ -10,7 +10,9 @@ import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 public class Main {
-    
+
+    private static final int BUFFER_SIZE = 8 * 1024; // 8 KB
+
     public static void main(String[] args) {
         try {
             Yaml yaml = new Yaml();
@@ -41,25 +43,28 @@ public class Main {
         }
     }
 
-    // zip
+    private static void streamCopy(InputStream in, OutputStream out) throws IOException {
+        byte[] buf = new byte[BUFFER_SIZE];
+        int read;
+        while ((read = in.read(buf)) != -1) {
+            out.write(buf, 0, read);
+        }
+    }
+
     public static void unzip(String file) throws IOException {
         Path destDir = Path.of(".").toAbsolutePath().normalize();
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new FileInputStream(file))) {
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(
+                new BufferedInputStream(new FileInputStream(file), BUFFER_SIZE))) {
 
             org.apache.commons.compress.archivers.zip.ZipArchiveEntry entry;
 
             while ((entry = zis.getNextZipEntry()) != null) {
-
                 String name = entry.getName();
-                if (name == null || name.isBlank()) {
-                    continue;
-                }
+                if (name == null || name.isBlank()) continue;
 
                 try {
                     Path target = destDir.resolve(name).normalize();
-                    if (!target.startsWith(destDir)) {
-                        continue;
-                    }
+                    if (!target.startsWith(destDir)) continue;
 
                     File out = target.toFile();
 
@@ -69,12 +74,11 @@ public class Main {
                     }
 
                     File parent = out.getParentFile();
-                    if (parent != null) {
-                        parent.mkdirs();
-                    }
+                    if (parent != null) parent.mkdirs();
 
-                    try (FileOutputStream fos = new FileOutputStream(out)) {
-                        zis.transferTo(fos);
+                    try (BufferedOutputStream fos = new BufferedOutputStream(
+                            new FileOutputStream(out), BUFFER_SIZE)) {
+                        streamCopy(zis, fos);
                     }
                 } catch (java.nio.file.InvalidPathException e) {
                     System.out.println("Skipping: " + name + " (invalid path characters)");
@@ -83,27 +87,20 @@ public class Main {
         }
     }
 
-    // tar.gz
     public static void untarGz(String file) throws IOException {
-
         Path destDir = Path.of(".").toAbsolutePath().normalize();
         try (TarArchiveInputStream tis = new TarArchiveInputStream(
-                new GZIPInputStream(new FileInputStream(file)))) {
+                new GZIPInputStream(
+                        new BufferedInputStream(new FileInputStream(file), BUFFER_SIZE)))) {
 
             TarArchiveEntry entry;
 
             while ((entry = tis.getNextTarEntry()) != null) {
-
                 String name = entry.getName();
-
-                if (name == null || name.isBlank()) {
-                    continue;
-                }
+                if (name == null || name.isBlank()) continue;
 
                 Path target = destDir.resolve(name).normalize();
-                if (!target.startsWith(destDir)) {
-                    continue;
-                }
+                if (!target.startsWith(destDir)) continue;
 
                 File out = target.toFile();
 
@@ -113,11 +110,11 @@ public class Main {
                 }
 
                 File parent = out.getParentFile();
-                if (parent != null)
-                    parent.mkdirs();
+                if (parent != null) parent.mkdirs();
 
-                try (FileOutputStream fos = new FileOutputStream(out)) {
-                    tis.transferTo(fos);
+                try (BufferedOutputStream fos = new BufferedOutputStream(
+                        new FileOutputStream(out), BUFFER_SIZE)) {
+                    streamCopy(tis, fos);
                 }
             }
         }
