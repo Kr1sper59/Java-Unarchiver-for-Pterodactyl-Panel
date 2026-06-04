@@ -1,4 +1,5 @@
 package dev.unpack;
+
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
@@ -15,8 +16,23 @@ public class Main {
 
     public static void main(String[] args) {
         try {
+            // Автосоздание config.yml
+            File configFile = new File("config.yml");
+            if (!configFile.exists()) {
+                try (InputStream def = Main.class.getResourceAsStream("/config.yml");
+                        FileOutputStream fos = new FileOutputStream(configFile)) {
+                    if (def != null) {
+                        streamCopy(def, fos);
+                        System.out.println("config.yml created. Edit it and restart.");
+                    } else {
+                        System.out.println("Default config not found in JAR.");
+                    }
+                }
+                return;
+            }
+
             Yaml yaml = new Yaml();
-            InputStream cfgStream = new FileInputStream("config.yml");
+            InputStream cfgStream = new FileInputStream(configFile);
             Map<String, Object> cfg = yaml.load(cfgStream);
 
             String archive = (String) cfg.getOrDefault("archive", "data.zip");
@@ -60,11 +76,13 @@ public class Main {
 
             while ((entry = zis.getNextZipEntry()) != null) {
                 String name = entry.getName();
-                if (name == null || name.isBlank()) continue;
+                if (name == null || name.isBlank())
+                    continue;
 
                 try {
                     Path target = destDir.resolve(name).normalize();
-                    if (!target.startsWith(destDir)) continue;
+                    if (!target.startsWith(destDir))
+                        continue;
 
                     File out = target.toFile();
 
@@ -74,7 +92,8 @@ public class Main {
                     }
 
                     File parent = out.getParentFile();
-                    if (parent != null) parent.mkdirs();
+                    if (parent != null)
+                        parent.mkdirs();
 
                     try (BufferedOutputStream fos = new BufferedOutputStream(
                             new FileOutputStream(out), BUFFER_SIZE)) {
@@ -97,10 +116,12 @@ public class Main {
 
             while ((entry = tis.getNextTarEntry()) != null) {
                 String name = entry.getName();
-                if (name == null || name.isBlank()) continue;
+                if (name == null || name.isBlank())
+                    continue;
 
                 Path target = destDir.resolve(name).normalize();
-                if (!target.startsWith(destDir)) continue;
+                if (!target.startsWith(destDir))
+                    continue;
 
                 File out = target.toFile();
 
@@ -110,7 +131,8 @@ public class Main {
                 }
 
                 File parent = out.getParentFile();
-                if (parent != null) parent.mkdirs();
+                if (parent != null)
+                    parent.mkdirs();
 
                 try (BufferedOutputStream fos = new BufferedOutputStream(
                         new FileOutputStream(out), BUFFER_SIZE)) {

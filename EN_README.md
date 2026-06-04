@@ -36,8 +36,6 @@ deleteAfter: false
 archive - archive name (.zip or .tar.gz )
 deleteAfter - delete the archive after unpacking
 
-⚠️ The config is not created automatically - create it manually.
-
 ---
 
 ## Bugs and suggestions
